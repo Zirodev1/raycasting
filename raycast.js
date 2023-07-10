@@ -5,6 +5,11 @@ const MAP_NUM_COLS = 15;
 const WINDOW_WIDTH = MAP_NUM_COLS * TILE_SIZE;
 const WINDOW_HEIGHT = MAP_NUM_ROWS * TILE_SIZE;
 
+const FOV_Angle = 60 * (Math.PI / 180);
+
+const WALL_STRIP_WIDTH = 30;
+const NUM_RAYS = WINDOW_WIDTH / WALL_STRIP_WIDTH;
+
 class Map {
   constructor() {
     this.grid = [
@@ -72,16 +77,79 @@ class Player {
   render() {
     fill("red");
     circle(this.x, this.y, this.radius);
-    stroke("red");
-    line(this.x, 
-        this.y, 
-        this.x + Math.cos(this.rotationAngle) * 30, 
-        this.y + Math.sin(this.rotationAngle) * 30);
+    // stroke("red");
+    // line(this.x, 
+    //     this.y, 
+    //     this.x + Math.cos(this.rotationAngle) * 30, 
+    //     this.y + Math.sin(this.rotationAngle) * 30);
   }
+}
+
+class Ray {
+    constructor(rayAngle) {
+        this.rayAngle = normalizeAngle(rayAngle);
+        this.wallHitX = 0;
+        this.wallHitY = 0;
+        this.distance = 0;
+
+        this.isRayFacingDown = this.rayAngle > 0 && this.rayAngle < Math.PI;
+        this.isRayFacingUp = !this.isRayFacingDown;
+
+        this.isRayFacingRight = this.rayAngle < 0.5 * Math.PI || this.rayAngle > 1.5 * Math.PI;
+        this.isRayFacingLeft = !this.isRayFacingRight;
+    }
+    cast(columnId){
+        var xintercept, yintercept;
+        var xstep, ystep;
+
+        ///////////////////////////////////////////
+        // HORIZONTAL RAY-GRID INTERSECTION CODE //
+        ///////////////////////////////////////////
+        var foundHorzWallHit = flase; 
+
+        // Find the y-coordinate of the closest horizontal grid intersection
+        yintercept = Math.floor(player.y / TILE_SIZE) * TILE_SIZE;
+        yintercept += this.isRayFacingDown ? TILE_SIZE : 0;
+
+        // Find the x-coordinate of the closest horizontal gird intersection
+        xintercept = player.x + (yintercept - player.y) / Math.tan(this.rayAngle);
+
+        // Calculate the increment xstep and ystep
+        ystep = TILE_SIZE;
+        ystep *= this.isRayFacingUp ? -1 : 1;
+
+        xstep = TILE_SIZE / Math.tan(this.rayAngle);
+        xstep *= (this.isRayFacingLeft && xstep > 0) ? -1 : 1;
+        xstep *= (this.isRayFacingRight && xstep < 0) ? -1 : 1;
+
+        var nextHorzTouchX = xintercept;
+        var nextHorzTouchY = yintercept;
+
+        if(this.isRayFacingUp) nextHorzTouchY;
+
+        // Increment xstep and ystep until we find a wall
+        while(...) {
+            if (grid.hasWallAt(nextHorzTouchX, nextHorzTouchY)){
+                // we found a wall hit...
+            }
+        }else {
+            nextHorzTouchX += xstep;
+            nextHorzTouchY += xstep;
+        }
+    }
+    render(){
+        stroke("rgba(255, 0, 0, 0.3)")
+        line(player.x, 
+            player.y, 
+            player.x + Math.cos(this.rayAngle) * 30,
+            player.y + Math.sin(this.rayAngle) * 30
+            );
+    }
 }
 
 var grid = new Map();
 var player = new Player();
+var rays = [];
 
 function keyPressed() {
   if (keyCode == UP_ARROW) {
@@ -107,6 +175,35 @@ function keyReleased() {
   }
 }
 
+function castAllRays(){
+    var columnId = 0;
+
+    //start first ray subtracting half of the FOV
+    var rayAngle = player.rotationAngle - (FOV_Angle / 2);
+
+    rays = [];
+
+    //loop all columns casting the rays
+    // for (var i = 0; i < NUM_RAYS; i++){
+    for(var i =0; i < 1; i++){
+        var ray = new Ray(rayAngle);
+        ray.cast(columnId);
+        rays.push(ray);
+
+        rayAngle += FOV_Angle / NUM_RAYS;
+
+        columnId++;
+    }
+}
+
+function normalizeAngle(angle){
+    angle = angle % (2 * Math.PI);
+    if (angle < 0){
+        angle = (2 * Math.PI) + angle;
+    }
+    return angle;
+}
+
 function setup() {
   // TODO: Initialize all objects
   createCanvas(WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -114,11 +211,16 @@ function setup() {
 
 function update() {
   player.update();
+  castAllRays();
 }
 
 function draw() {
   update();
+   
   grid.render();
-  player.render();
+  for (ray of rays) {
+      ray.render();
+    }
+    player.render();
   // TODO: render all objects frame by frame
 }
